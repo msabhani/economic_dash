@@ -9,15 +9,10 @@ from functools import wraps
 from flask import Flask, render_template, jsonify, request
 from urllib.parse import quote, unquote
 import pandas as pd
-from statistics import mean, stdev
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
 import numpy as np
-from scipy import stats
-from scipy.stats import pearsonr
-from statsmodels.tsa.stattools import grangercausalitytests, ccf
-from statsmodels.tsa.stattools import adfuller
 import warnings
 
 
