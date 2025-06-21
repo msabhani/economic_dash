@@ -13,6 +13,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
 import numpy as np
+from statistics import mean, stdev
 import warnings
 
 
@@ -33,6 +34,8 @@ FRED_BASE_URL = "https://api.stlouisfed.org/fred"
 if not FRED_API_KEY:
     logger.error("FRED_API_KEY not found in environment variables!")
     logger.error("Please create a .env file with: FRED_API_KEY=your_key_here")
+
+DB_PATH = os.environ.get('SQLITE_DB_PATH','economic_data.db')
 
 # Economic Indicators Configuration with proper FRED data scaling
 INDICATORS = {
@@ -299,7 +302,7 @@ INDICATORS = {
 # Database setup
 def init_db():
     """Initialize the SQLite database"""
-    conn = sqlite3.connect('economic_data.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
     # Create tables
@@ -433,7 +436,7 @@ def fetch_fred_data(series_id, start_date=None):
 
 def update_indicator_data(series_id, force_update=False):
     """Update data for a specific indicator"""
-    conn = sqlite3.connect('economic_data.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
     try:
@@ -502,7 +505,7 @@ def update_indicator_data(series_id, force_update=False):
 
 def get_indicator_data(series_id, days_back=None):
     """Get indicator data from database"""
-    conn = sqlite3.connect('economic_data.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
     query = '''
@@ -549,7 +552,7 @@ def calculate_period_change(data, format_type, period='1Y', series_id=None):
             target_date = current_dt - timedelta(days=period_days[period])
             
             # Find closest historical point (same logic as yoy_change)
-            conn = sqlite3.connect('economic_data.db')
+            conn = sqlite3.connect(DB_PATH)
             cursor = conn.cursor()
             
             # Look within ±15 day window for closest match
@@ -600,7 +603,7 @@ def calculate_yoy_change(current_date, current_value, series_id, format_type):
             return None
         
         # Find closest data point from a year ago (within 30 days window)
-        conn = sqlite3.connect('economic_data.db')
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         
         # Look for data within 30 days of the target date
@@ -644,7 +647,7 @@ def calculate_qoq_change(current_date, current_value, series_id, format_type):
             return None
         
         # Find closest data point from 90 days ago (within 15 days window)
-        conn = sqlite3.connect('economic_data.db')
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         
         window_start = (quarter_ago - timedelta(days=15)).strftime('%Y-%m-%d')
@@ -1027,7 +1030,7 @@ def analyze_indicator_health(series_id, current_value, yoy_change, three_year_av
 def get_cached_recent_updates():
     """Get recent updates from cache if less than 12 hours old"""
     try:
-        conn = sqlite3.connect('economic_data.db')
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         
         # Get the most recent cache entry
@@ -1060,7 +1063,7 @@ def get_cached_recent_updates():
 def save_recent_updates_cache(updates_data):
     """Save recent updates to cache"""
     try:
-        conn = sqlite3.connect('economic_data.db')
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         
         # Clear old cache entries (keep only last 5 for cleanup)
@@ -1116,7 +1119,7 @@ def get_recent_updates_with_cache(max_indicators=10):
         
         # Fallback: try to get any cached data, even if expired
         try:
-            conn = sqlite3.connect('economic_data.db')
+            conn = sqlite3.connect(DB_PATH)
             cursor = conn.cursor()
             cursor.execute('''
                 SELECT cache_data FROM recent_updates_cache 
@@ -1375,7 +1378,7 @@ def debug_info():
     """Debug endpoint to check system status"""
     try:
         # Check database
-        conn = sqlite3.connect('economic_data.db')
+        conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute('SELECT COUNT(*) FROM indicator_data')
         data_count = cursor.fetchone()[0]
@@ -1654,4 +1657,4 @@ if __name__ == '__main__':
     
     # Run the app
     port = int(os.environ.get('PORT', 5000))
-    app.run(debug=False, host='0.0.0.0', port=port)
+    app.run(debug=False, host='0.0.0.0', port="5000")
