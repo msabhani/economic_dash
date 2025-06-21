@@ -39,7 +39,7 @@ if not FRED_API_KEY:
 DB_PATH = os.environ.get('SQLITE_DB_PATH','economic_data.db')
 
 if not os.path.exists('/data/economic_data.db'):
-    shutil.copyfile('./economic_data.db', '/data/economic_data.db')
+    shutil.copyfile('./economic_data.db', '/mnt/data/economic_data.db')
 
 # Economic Indicators Configuration with proper FRED data scaling
 INDICATORS = {
