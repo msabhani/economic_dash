@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Economic Dashboard</title>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    
+    <style>
+        :root {
+            --bg-dark: #0a0a0b;
+            --bg-card: #131316;
+            --bg-card-hover: #1a1a1e;
+            --purple-primary: #8b5cf6;
+            --green-primary: #10b981;
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #64748b;
+            --border-color: #374151;
+            --border-hover: #4b5563;
+            --yellow-primary: #fbbf24;
+            --red-primary: #ef4444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .gradient-bg {
+            background: linear-gradient(135deg, 
+                rgba(139, 92, 246, 0.1) 0%, 
+                rgba(16, 185, 129, 0.1) 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        .header {
+            text-align: center;
+            padding: 2rem 0 3rem;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 3rem;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--purple-primary), var(--green-primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .section {
+            margin-bottom: 4rem;
+        }
+
+        .section-title {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--purple-primary);
+        }
+
+        .section-summary {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            transition: all 0.3s ease;
+        }
+
+        .section-summary:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--border-hover);
+        }
+
+        .health-indicator {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .health-healthy {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--green-primary);
+            border: 1px solid var(--green-primary);
+        }
+
+        .health-moderate {
+            background: rgba(251, 191, 36, 0.2);
+            color: var(--yellow-primary);
+            border: 1px solid var(--yellow-primary);
+        }
+
+        .health-unhealthy {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--red-primary);
+            border: 1px solid var(--red-primary);
+        }
+
+        .indicators-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 2rem;
+        }
+
+        .indicator-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .indicator-card:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--border-hover);
+            transform: translateY(-2px);
+        }
+
+        .indicator-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .indicator-description {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            line-height: 1.4;
+            margin-bottom: 1.5rem;
+        }
+
+        .indicator-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: rgba(139, 92, 246, 0.05);
+            border-radius: 8px;
+            border: 1px solid rgba(139, 92, 246, 0.2);
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 0.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .stat-positive {
+            color: var(--green-primary);
+        }
+
+        .stat-negative {
+            color: var(--red-primary);
+        }
+
+        .time-filters {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            overflow-x: auto;
+            padding: 0.25rem;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .time-filter-btn {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.875rem;
+            white-space: nowrap;
+            min-width: 60px;
+            flex-shrink: 0;
+        }
+
+        .time-filter-btn:hover {
+            border-color: var(--purple-primary);
+            color: var(--text-primary);
+        }
+
+        .time-filter-btn.active {
+            background: var(--purple-primary);
+            border-color: var(--purple-primary);
+            color: white;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 1rem;
+            overflow: hidden;
+        }
+
+        .chart-canvas {
+            position: relative;
+            height: 100%;
+            width: 100%;
+            max-width: 100%;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-muted);
+        }
+
+        .error {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--red-primary);
+            text-align: center;
+            flex-direction: column;
+        }
+
+        .retry-btn {
+            margin-top: 0.5rem;
+            padding: 0.25rem 0.5rem;
+            background: transparent;
+            border: 1px solid var(--red-primary);
+            color: var(--red-primary);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+
+        .retry-btn:hover {
+            background: var(--red-primary);
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                overflow-x: hidden;
+            }
+
+            .container {
+                padding: 0.5rem;
+                max-width: 100vw;
+                box-sizing: border-box;
+            }
+            
+            .indicators-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+            
+            .indicator-card {
+                padding: 1rem;
+                width: 100%;
+                max-width: 100%;
+                box-sizing: border-box;
+                overflow: hidden;
+            }
+            
+            .indicator-stats {
+                flex-direction: column;
+                gap: 1rem;
+                padding: 0.75rem;
+                width: 100%;
+                box-sizing: border-box;
+            }
+            
+            .chart-container {
+                height: 250px;
+                padding: 0.5rem;
+                margin: 0;
+                width: 100%;
+                max-width: 100%;
+                box-sizing: border-box;
+                overflow: hidden;
+            }
+            
+            .chart-canvas {
+                position: relative;
+                height: 100%;
+                width: 100%;
+                max-width: 100%;
+            }
+            
+            .time-filters {
+                gap: 0.25rem;
+                margin-bottom: 0.75rem;
+                overflow-x: auto;
+                padding: 0.25rem 0;
+                -webkit-overflow-scrolling: touch;
+                width: 100%;
+                max-width: 100%;
+                box-sizing: border-box;
+            }
+            
+            .time-filter-btn {
+                padding: 0.4rem 0.7rem;
+                font-size: 0.8rem;
+                min-width: 45px;
+                flex-shrink: 0;
+            }
+            
+            .indicator-title {
+                font-size: 1.1rem;
+                line-height: 1.3;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                hyphens: auto;
+                max-width: 100%;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                max-width: 100%;
+            }
+            
+            .indicator-description {
+                font-size: 0.85rem;
+                margin-bottom: 1rem;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                max-width: 100%;
+            }
+            
+            .stat-item {
+                width: 100%;
+                padding: 0.5rem;
+                box-sizing: border-box;
+            }
+            
+            .stat-label {
+                font-size: 0.75rem;
+                word-wrap: break-word;
+            }
+            
+            .stat-value {
+                font-size: 1rem;
+                word-wrap: break-word;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+                word-wrap: break-word;
+                max-width: 100%;
+            }
+            
+            .section-title {
+                font-size: 1.5rem;
+                word-wrap: break-word;
+                max-width: 100%;
+            }
+
+            .section-summary {
+                width: 100%;
+                max-width: 100%;
+                box-sizing: border-box;
+                overflow: hidden;
+                word-wrap: break-word;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .chart-container {
+                height: 220px;
+                padding: 0.25rem;
+            }
+            
+            .time-filter-btn {
+                padding: 0.3rem 0.5rem;
+                font-size: 0.75rem;
+                min-width: 40px;
+            }
+            
+            .indicator-card {
+                padding: 0.75rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="gradient-bg">
+        <div class="container">
+            <header class="header">
+                <h1>Key U.S. Economic Indicators</h1>
+                <p>Real-time economic indicators from the Federal Reserve Economic Data (FRED)</p>
+            </header>
+
+            <main>
+
+                <!-- Recent Updates Section -->
+                <section class="section">
+                    <h2 class="section-title">RECENT DATA UPDATES</h2>
+                    
+                    <!-- Recent Updates Summary -->
+                    <div class="section-summary" id="recent-updates-summary">
+                        <div class="loading">Loading recent updates analysis...</div>
+                    </div>
+
+                    <!-- Recent Updates List -->
+                    <div class="recent-updates-container">
+                        <div class="loading" id="loading-recent-updates">Loading recent data updates...</div>
+                        <div class="error" id="error-recent-updates" style="display: none;">
+                            <div>Failed to load recent updates</div>
+                            <button class="retry-btn" onclick="loadRecentUpdates()">Retry</button>
+                        </div>
+                        <div id="recent-updates-list" style="display: none;"></div>
+                    </div>
+                </section>
+
+                {% for section_name, section_indicators in indicators.items() %}
+                <section class="section">
+                    <h2 class="section-title">{{ section_name }}</h2>
+                    
+                    <!-- Section Summary -->
+                    <div class="section-summary" id="summary-{{ loop.index }}">
+                        <div class="loading">Loading section analysis...</div>
+                    </div>
+
+                    <!-- Indicators Grid -->
+                    <div class="indicators-grid">
+                        {% for series_id, config in section_indicators.items() %}
+                        <article class="indicator-card" data-series-id="{{ series_id }}">
+                            <h3 class="indicator-title">{{ config.name }}</h3>
+                            <p class="indicator-description">{{ config.description }}</p>
+
+                            <!-- Stats Display -->
+                            <div class="indicator-stats" id="stats-{{ series_id }}" style="display: none;">
+                                <div class="stat-item">
+                                    <div class="stat-label">Latest Value</div>
+                                    <div class="stat-value" id="latest-{{ series_id }}">--</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">1Y Change</div>
+                                    <div class="stat-value" id="change-{{ series_id }}">--</div>
+                                </div>
+                            </div>
+
+                            <!-- Time Filter Buttons -->
+                            <div class="time-filters">
+                                <button class="time-filter-btn" onclick="changeTimeframe('{{ series_id }}', '3M')">3M</button>
+                                <button class="time-filter-btn" onclick="changeTimeframe('{{ series_id }}', '6M')">6M</button>
+                                <button class="time-filter-btn" onclick="changeTimeframe('{{ series_id }}', 'YTD')">YTD</button>
+                                <button class="time-filter-btn active" onclick="changeTimeframe('{{ series_id }}', '1Y')">1Y</button>
+                                <button class="time-filter-btn" onclick="changeTimeframe('{{ series_id }}', '5Y')">5Y</button>
+                                <button class="time-filter-btn" onclick="changeTimeframe('{{ series_id }}', '10Y')">10Y</button>
+                                <button class="time-filter-btn" onclick="changeTimeframe('{{ series_id }}', 'MAX')">MAX</button>
+                            </div>
+
+                            <!-- Chart Container -->
+                            <div class="chart-container">
+                                <div class="loading" id="loading-{{ series_id }}">Loading chart...</div>
+                                <div class="error" id="error-{{ series_id }}" style="display: none;">
+                                    <div>Failed to load chart</div>
+                                    <button class="retry-btn" onclick="loadIndicator('{{ series_id }}', '1Y')">Retry</button>
+                                </div>
+                                <div class="chart-canvas" id="chart-container-{{ series_id }}" style="display: none;">
+                                    <canvas id="chart-{{ series_id }}"></canvas>
+                                </div>
+                            </div>
+                        </article>
+                        {% endfor %}
+                    </div>
+                </section>
+                {% endfor %}
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        const charts = {};
+        const currentPeriods = {};
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Page loaded, initializing dashboard...');
+            
+            // Check if Chart.js is loaded
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js not loaded!');
+                return;
+            }
+            
+            console.log('Chart.js loaded successfully');
+            
+            // Load all sections and indicators
+            loadRecentUpdates();
+            loadAllSections();
+            loadAllIndicators();
+
+        });
+
+        // Load recent updates function
+        async function loadRecentUpdates() {
+            try {
+                console.log('Loading recent updates...');
+                
+                // Show loading state
+                document.getElementById('recent-updates-summary').innerHTML = '<div class="loading">Loading recent updates analysis...</div>';
+                document.getElementById('loading-recent-updates').style.display = 'flex';
+                document.getElementById('error-recent-updates').style.display = 'none';
+                document.getElementById('recent-updates-list').style.display = 'none';
+                
+                const response = await fetch('/api/recent-updates');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                // Update summary with economic analysis
+                const summaryElement = document.getElementById('recent-updates-summary');
+                summaryElement.innerHTML = `
+                    <p>${data.economic_analysis}</p>
+                `;
+                
+                // Create recent updates list
+                const updatesListElement = document.getElementById('recent-updates-list');
+                
+                if (data.updates && data.updates.length > 0) {
+                    let updatesHTML = '<div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem;">';
+                    updatesHTML += '<h3 style="margin-bottom: 1rem; color: var(--text-primary); font-size: 1.2rem;">Top 10 Latest Updates</h3>';
+                    updatesHTML += '<ul style="margin: 0; padding-left: 1.5rem; color: var(--text-primary);">';
+                    
+                    data.updates.forEach(update => {
+                        const daysText = update.days_ago === 0 ? 'today' : 
+                                        update.days_ago === 1 ? '1 day ago' : 
+                                        `${update.days_ago} days ago`;
+                        
+                        // Format the change text
+                        let changeText = '';
+                        
+                        // Add YoY change if available
+                        if (update.yoy_change && update.yoy_change !== 'N/A') {
+                            const yoyDirection = update.yoy_change_raw > 0 ? 'up' : 'down';
+                            changeText += `${yoyDirection} ${update.yoy_change} Y/Y`;
+                        }
+                        
+                        // Add QoQ change if available
+                        if (update.qoq_change && update.qoq_change !== 'N/A') {
+                            const qoqDirection = update.qoq_change_raw > 0 ? 'up' : 'down';
+                            if (changeText) changeText += ' and ';
+                            changeText += `${qoqDirection} ${update.qoq_change} Q/Q`;
+                        }
+                        
+                        // If no changes available, just show current value
+                        if (!changeText) {
+                            changeText = 'no change data available';
+                        }
+                        
+                        updatesHTML += `
+                            <li style="margin-bottom: 0.5rem; line-height: 1.4;">
+                                <strong>${update.name}</strong> was updated ${daysText} to ${update.latest_value}, ${changeText}.
+                            </li>
+                        `;
+                    });
+                    
+                    updatesHTML += '</ul></div>';
+                    updatesListElement.innerHTML = updatesHTML;
+                } else {
+                    updatesListElement.innerHTML = `
+                        <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                            <div style="font-size: 1.1rem; margin-bottom: 0.5rem;">No Recent Updates</div>
+                            <div style="font-size: 0.9rem;">No economic data has been updated in the specified period.</div>
+                        </div>
+                    `;
+                }
+                
+                // Hide loading, show content
+                document.getElementById('loading-recent-updates').style.display = 'none';
+                document.getElementById('recent-updates-list').style.display = 'block';
+                
+                console.log('Recent updates loaded successfully');
+                
+            } catch (error) {
+                console.error('Error loading recent updates:', error);
+                
+                // Show error state
+                document.getElementById('loading-recent-updates').style.display = 'none';
+                document.getElementById('error-recent-updates').style.display = 'flex';
+                document.getElementById('error-recent-updates').innerHTML = `
+                    <div>Failed to load recent updates: ${error.message}</div>
+                    <button class="retry-btn" onclick="loadRecentUpdates()">Retry</button>
+                `;
+                
+                // Show error in summary too
+                document.getElementById('recent-updates-summary').innerHTML = `
+                    <div class="error">
+                        <div>Failed to load economic analysis</div>
+                        <button class="retry-btn" onclick="loadRecentUpdates()">Retry</button>
+                    </div>
+                `;
+            }
+        }
+
+        // Load section summaries
+        function loadAllSections() {
+            const sections = [
+                {% for section_name in indicators.keys() %}
+                "{{ section_name | urlencode }}",
+                {% endfor %}
+            ];
+            
+            sections.forEach((sectionName, index) => {
+                loadSectionSummary(sectionName, index + 1);
+            });
+        }
+
+        // Load section summary
+        async function loadSectionSummary(sectionName, index) {
+            try {
+                console.log('Loading section:', sectionName);
+                const response = await fetch(`/api/section/${sectionName}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                const summaryElement = document.getElementById(`summary-${index}`);
+                
+                summaryElement.innerHTML = `
+                    <div class="health-indicator health-${data.health_status}">
+                        ${data.health_status.charAt(0).toUpperCase() + data.health_status.slice(1)}
+                    </div>
+                    <p>${data.analysis}</p>
+                `;
+                
+                console.log('Section loaded:', sectionName);
+                
+            } catch (error) {
+                console.error('Error loading section:', sectionName, error);
+                const summaryElement = document.getElementById(`summary-${index}`);
+                summaryElement.innerHTML = `
+                    <div class="error">
+                        <div>Failed to load section analysis</div>
+                        <button class="retry-btn" onclick="loadSectionSummary('${sectionName}', ${index})">Retry</button>
+                    </div>
+                `;
+            }
+        }
+
+        // Load all indicators
+        function loadAllIndicators() {
+            const indicators = [
+                {% for section_indicators in indicators.values() %}
+                    {% for series_id in section_indicators.keys() %}
+                    "{{ series_id }}",
+                    {% endfor %}
+                {% endfor %}
+            ];
+            
+            indicators.forEach(seriesId => {
+                currentPeriods[seriesId] = '1Y';
+                loadIndicator(seriesId, '1Y');
+            });
+        }
+
+        // Load individual indicator
+        async function loadIndicator(seriesId, period) {
+            try {
+                console.log('Loading indicator:', seriesId, 'period:', period);
+                
+                // Show loading state
+                document.getElementById(`loading-${seriesId}`).style.display = 'flex';
+                document.getElementById(`error-${seriesId}`).style.display = 'none';
+                document.getElementById(`chart-container-${seriesId}`).style.display = 'none';
+                
+                const response = await fetch(`/api/indicator/${seriesId}?period=${period}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (!data.data || data.data.length === 0) {
+                    throw new Error('No data available');
+                }
+                
+                // Update stats
+                updateStats(seriesId, data, period);
+                
+                // Create or update chart
+                createChart(seriesId, data);
+                
+                // Hide loading, show chart
+                document.getElementById(`loading-${seriesId}`).style.display = 'none';
+                document.getElementById(`chart-container-${seriesId}`).style.display = 'block';
+                document.getElementById(`stats-${seriesId}`).style.display = 'flex';
+                
+                console.log('Indicator loaded successfully:', seriesId);
+                
+            } catch (error) {
+                console.error('Error loading indicator:', seriesId, error);
+                
+                // Show error state
+                document.getElementById(`loading-${seriesId}`).style.display = 'none';
+                document.getElementById(`error-${seriesId}`).style.display = 'flex';
+                document.getElementById(`error-${seriesId}`).innerHTML = `
+                    <div>Failed to load: ${error.message}</div>
+                    <button class="retry-btn" onclick="loadIndicator('${seriesId}', '${period}')">Retry</button>
+                `;
+            }
+        }
+
+        // Update stats display
+        function updateStats(seriesId, data, period) {
+            const latestElement = document.getElementById(`latest-${seriesId}`);
+            const changeElement = document.getElementById(`change-${seriesId}`);
+            const labelElement = changeElement.parentElement.querySelector('.stat-label');
+            
+            latestElement.textContent = data.latest_value || '--';
+            changeElement.textContent = data.period_change || '--';
+            labelElement.textContent = period + ' Change';
+            
+            // Set color based on change
+            changeElement.className = 'stat-value';
+            if (data.period_change && data.period_change.includes('+')) {
+                changeElement.classList.add('stat-positive');
+            } else if (data.period_change && data.period_change.includes('-')) {
+                changeElement.classList.add('stat-negative');
+            }
+        }
+
+        // Create chart with mobile optimizations
+        function createChart(seriesId, data) {
+            const canvas = document.getElementById(`chart-${seriesId}`);
+            if (!canvas) {
+                console.error('Canvas not found for:', seriesId);
+                return;
+            }
+            
+            const ctx = canvas.getContext('2d');
+            
+            // Destroy existing chart
+            if (charts[seriesId]) {
+                charts[seriesId].destroy();
+            }
+            
+            // Filter valid data
+            const validData = data.data.filter(point => 
+                point.value !== null && 
+                point.value !== undefined && 
+                !isNaN(parseFloat(point.value))
+            );
+            
+            if (validData.length === 0) {
+                throw new Error('No valid data points');
+            }
+            
+            // Create gradient
+            const gradient = ctx.createLinearGradient(0, 0, 0, 280);
+            gradient.addColorStop(0, 'rgba(139, 92, 246, 0.3)');
+            gradient.addColorStop(1, 'rgba(139, 92, 246, 0.05)');
+            
+            // Detect mobile device
+            const isMobile = window.innerWidth <= 768;
+            
+            // Chart configuration with mobile optimizations
+            const config = {
+                type: 'line',
+                data: {
+                    labels: validData.map(point => point.date),
+                    datasets: [{
+                        label: data.metadata.name,
+                        data: validData.map(point => parseFloat(point.value)),
+                        borderColor: '#8b5cf6',
+                        backgroundColor: gradient,
+                        borderWidth: isMobile ? 1.5 : 2,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0,
+                        pointHoverRadius: isMobile ? 4 : 6,
+                        pointHoverBackgroundColor: '#8b5cf6',
+                        pointHoverBorderColor: '#ffffff',
+                        pointHoverBorderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    devicePixelRatio: isMobile ? 1 : window.devicePixelRatio,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    layout: {
+                        padding: {
+                            top: isMobile ? 5 : 10,
+                            right: isMobile ? 5 : 10,
+                            bottom: isMobile ? 5 : 10,
+                            left: isMobile ? 5 : 10
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(19, 19, 22, 0.95)',
+                            titleColor: '#f8fafc',
+                            bodyColor: '#cbd5e1',
+                            borderColor: '#374151',
+                            borderWidth: 1,
+                            cornerRadius: 8,
+                            padding: isMobile ? 8 : 12,
+                            displayColors: false,
+                            titleFont: {
+                                size: isMobile ? 12 : 14
+                            },
+                            bodyFont: {
+                                size: isMobile ? 11 : 13
+                            },
+                            callbacks: {
+                                title: function(tooltipItems) {
+                                    const dataIndex = tooltipItems[0].dataIndex;
+                                    const dateStr = validData[dataIndex].date;
+                                    const date = new Date(dateStr);
+                                    return date.toLocaleDateString('en-US', {
+                                        year: 'numeric',
+                                        month: 'short',
+                                        day: 'numeric'
+                                    });
+                                },
+                                label: function(context) {
+                                    const dataIndex = context.dataIndex;
+                                    const dataPoint = validData[dataIndex];
+                                    let label = `Value: ${dataPoint.formatted_value}`;
+                                    if (dataPoint.formatted_yoy_change && dataPoint.formatted_yoy_change !== 'N/A') {
+                                        label += `\nYoY: ${dataPoint.formatted_yoy_change}`;
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                displayFormats: {
+                                    day: isMobile ? 'M/d' : 'MMM dd',
+                                    month: isMobile ? 'M/yy' : 'MMM yyyy',
+                                    quarter: isMobile ? 'M/yy' : 'MMM yyyy',
+                                    year: 'yyyy'
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(55, 65, 81, 0.3)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#64748b',
+                                maxTicksLimit: isMobile ? 4 : 8,
+                                font: {
+                                    size: isMobile ? 10 : 12
+                                }
+                            }
+                        },
+                        y: {
+                            grid: {
+                                color: 'rgba(55, 65, 81, 0.3)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#64748b',
+                                maxTicksLimit: isMobile ? 5 : 8,
+                                font: {
+                                    size: isMobile ? 10 : 12
+                                },
+                                callback: function(value) {
+                                    return formatAxisLabel(value, data.metadata.format, data.metadata.unit, isMobile);
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+            
+            // Create chart
+            charts[seriesId] = new Chart(ctx, config);
+            console.log('Chart created for:', seriesId);
+        }
+
+        // Format axis labels with mobile optimization
+        function formatAxisLabel(value, format, unit, isMobile = false) {
+            const absValue = Math.abs(value);
+            
+            if (format === 'percentage') {
+                return value.toFixed(1) + '%';
+            } else if (format === 'currency') {
+                if (unit === 'billions') {
+                    if (absValue >= 1000) {
+                        return '$' + (value / 1000).toFixed(isMobile ? 0 : 1) + 'T';
+                    } else {
+                        return '$' + value.toFixed(isMobile ? 0 : 1) + 'B';
+                    }
+                } else if (unit === 'millions') {
+                    if (absValue >= 1000) {
+                        return '$' + (value / 1000).toFixed(isMobile ? 0 : 1) + 'B';
+                    } else {
+                        return '$' + value.toFixed(isMobile ? 0 : 1) + 'M';
+                    }
+                } else {
+                    if (absValue >= 1000000000000) {
+                        return '$' + (value / 1000000000000).toFixed(isMobile ? 0 : 1) + 'T';
+                    } else if (absValue >= 1000000000) {
+                        return '$' + (value / 1000000000).toFixed(isMobile ? 0 : 1) + 'B';
+                    } else if (absValue >= 1000000) {
+                        return '$' + (value / 1000000).toFixed(isMobile ? 0 : 1) + 'M';
+                    } else if (absValue >= 1000) {
+                        return '$' + (value / 1000).toFixed(isMobile ? 0 : 1) + 'K';
+                    } else {
+                        return '$' + value.toFixed(isMobile ? 0 : 1);
+                    }
+                }
+            } else {
+                if (unit === 'thousands') {
+                    if (absValue >= 1000000) {
+                        return (value / 1000000).toFixed(isMobile ? 0 : 1) + 'B';
+                    } else if (absValue >= 1000) {
+                        return (value / 1000).toFixed(isMobile ? 0 : 1) + 'M';
+                    } else {
+                        return value.toFixed(isMobile ? 0 : 1) + 'K';
+                    }
+                } else if (unit === 'millions') {
+                    if (absValue >= 1000) {
+                        return (value / 1000).toFixed(isMobile ? 0 : 1) + 'B';
+                    } else {
+                        return value.toFixed(isMobile ? 0 : 1) + 'M';
+                    }
+                } else {
+                    if (absValue >= 1000000000) {
+                        return (value / 1000000000).toFixed(isMobile ? 0 : 1) + 'B';
+                    } else if (absValue >= 1000000) {
+                        return (value / 1000000).toFixed(isMobile ? 0 : 1) + 'M';
+                    } else if (absValue >= 1000) {
+                        return (value / 1000).toFixed(isMobile ? 0 : 1) + 'K';
+                    } else {
+                        return value.toFixed(isMobile ? 0 : 1);
+                    }
+                }
+            }
+        }
+
+        // Change timeframe
+        function changeTimeframe(seriesId, period) {
+            // Update button states
+            const card = document.querySelector(`[data-series-id="${seriesId}"]`);
+            const buttons = card.querySelectorAll('.time-filter-btn');
+            buttons.forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.textContent === period) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            // Load new data
+            currentPeriods[seriesId] = period;
+            loadIndicator(seriesId, period);
+        }
+
+        // Handle window resize events
+        window.addEventListener('resize', function() {
+            // Redraw charts on orientation change
+            Object.keys(charts).forEach(seriesId => {
+                if (charts[seriesId]) {
+                    charts[seriesId].resize();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
