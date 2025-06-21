@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 import numpy as np
 from statistics import mean, stdev
 import warnings
+import shutil
 
 
 # Load environment variables
@@ -36,6 +37,9 @@ if not FRED_API_KEY:
     logger.error("Please create a .env file with: FRED_API_KEY=your_key_here")
 
 DB_PATH = os.environ.get('SQLITE_DB_PATH','economic_data.db')
+
+if not os.path.exists('/data/economic_data.db'):
+    shutil.copyfile('./economic_data.db', '/data/economic_data.db')
 
 # Economic Indicators Configuration with proper FRED data scaling
 INDICATORS = {
