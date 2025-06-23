@@ -206,19 +206,26 @@
             overflow-x: auto;
             padding: 0.25rem;
             -webkit-overflow-scrolling: touch;
+
+        }
+
+        .time-filter-buttons {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
         }
 
         .time-filter-btn {
             background: transparent;
             border: 1px solid var(--border-color);
             color: var(--text-secondary);
-            padding: 0.5rem 1rem;
+            padding: 0.5rem 0.75rem;
             border-radius: 6px;
             cursor: pointer;
             transition: all 0.2s ease;
             font-size: 0.875rem;
             white-space: nowrap;
-            min-width: 60px;
+            min-width: 40px;
             flex-shrink: 0;
         }
 
@@ -281,6 +288,35 @@
         .retry-btn:hover {
             background: var(--red-primary);
             color: white;
+        }
+
+        .download-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 0.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            flex-shrink: 0; /* Prevent shrinking */
+            margin-left: auto;
+        }
+
+        .download-btn:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--purple-primary);
+            color: var(--purple-primary);
+        }
+
+        .download-arrow {
+            width: 14px;
+            height: 14px;
+            fill: currentColor;
         }
 
         @media (max-width: 768px) {
@@ -412,6 +448,17 @@
                 height: 220px;
                 padding: 0.25rem;
             }
+
+             .download-btn {
+                width: 28px;
+                height: 28px;
+                padding: 0.25rem;
+            }
+            
+            .download-arrow {
+                width: 12px;
+                height: 12px;
+            }
             
             .time-filter-btn {
                 padding: 0.3rem 0.5rem;
@@ -438,11 +485,6 @@
                 <!-- Recent Updates Section -->
                 <section class="section">
                     <h2 class="section-title">RECENT DATA UPDATES</h2>
-                    
-                    <!-- Recent Updates Summary -->
-                    <div class="section-summary" id="recent-updates-summary">
-                        <div class="loading">Loading recent updates analysis...</div>
-                    </div>
 
                     <!-- Recent Updates List -->
                     <div class="recent-updates-container">
@@ -485,13 +527,20 @@
 
                             <!-- Time Filter Buttons -->
                             <div class="time-filters">
-                                <button class="time-filter-btn" onclick="changeTimeframe('{{ series_id }}', '3M')">3M</button>
-                                <button class="time-filter-btn" onclick="changeTimeframe('{{ series_id }}', '6M')">6M</button>
-                                <button class="time-filter-btn" onclick="changeTimeframe('{{ series_id }}', 'YTD')">YTD</button>
-                                <button class="time-filter-btn active" onclick="changeTimeframe('{{ series_id }}', '1Y')">1Y</button>
-                                <button class="time-filter-btn" onclick="changeTimeframe('{{ series_id }}', '5Y')">5Y</button>
-                                <button class="time-filter-btn" onclick="changeTimeframe('{{ series_id }}', '10Y')">10Y</button>
-                                <button class="time-filter-btn" onclick="changeTimeframe('{{ series_id }}', 'MAX')">MAX</button>
+                                <div class="time-filter-buttons">
+                                    <button class="time-filter-btn" onclick="changeTimeframe('{{ series_id }}', '3M')">3M</button>
+                                    <button class="time-filter-btn" onclick="changeTimeframe('{{ series_id }}', '6M')">6M</button>
+                                    <button class="time-filter-btn" onclick="changeTimeframe('{{ series_id }}', 'YTD')">YTD</button>
+                                    <button class="time-filter-btn active" onclick="changeTimeframe('{{ series_id }}', '1Y')">1Y</button>
+                                    <button class="time-filter-btn" onclick="changeTimeframe('{{ series_id }}', '5Y')">5Y</button>
+                                    <button class="time-filter-btn" onclick="changeTimeframe('{{ series_id }}', '10Y')">10Y</button>
+                                    <button class="time-filter-btn" onclick="changeTimeframe('{{ series_id }}', 'MAX')">MAX</button>
+                                </div>
+                                <button class="download-btn" onclick="downloadData('{{ series_id }}')" title="Download data as Excel">
+                                    <svg class="download-arrow" viewBox="0 0 24 24">
+                                        <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                                    </svg>
+                                </button>
                             </div>
 
                             <!-- Chart Container -->
@@ -532,6 +581,7 @@
             console.log('Chart.js loaded successfully');
             
             // Load all sections and indicators
+            hideMobileDownloadButtons();
             loadRecentUpdates();
             loadAllSections();
             loadAllIndicators();
@@ -544,7 +594,6 @@
                 console.log('Loading recent updates...');
                 
                 // Show loading state
-                document.getElementById('recent-updates-summary').innerHTML = '<div class="loading">Loading recent updates analysis...</div>';
                 document.getElementById('loading-recent-updates').style.display = 'flex';
                 document.getElementById('error-recent-updates').style.display = 'none';
                 document.getElementById('recent-updates-list').style.display = 'none';
@@ -557,18 +606,11 @@
                 
                 const data = await response.json();
                 
-                // Update summary with economic analysis
-                const summaryElement = document.getElementById('recent-updates-summary');
-                summaryElement.innerHTML = `
-                    <p>${data.economic_analysis}</p>
-                `;
-                
                 // Create recent updates list
                 const updatesListElement = document.getElementById('recent-updates-list');
                 
                 if (data.updates && data.updates.length > 0) {
                     let updatesHTML = '<div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem;">';
-                    updatesHTML += '<h3 style="margin-bottom: 1rem; color: var(--text-primary); font-size: 1.2rem;">Top 10 Latest Updates</h3>';
                     updatesHTML += '<ul style="margin: 0; padding-left: 1.5rem; color: var(--text-primary);">';
                     
                     data.updates.forEach(update => {
@@ -1008,6 +1050,45 @@
             // Load new data
             currentPeriods[seriesId] = period;
             loadIndicator(seriesId, period);
+        }
+
+        async function downloadData(seriesId) {
+            try {
+                console.log('Downloading data for:', seriesId);
+                
+                // Create a temporary link and trigger download
+                const link = document.createElement('a');
+                link.href = `/api/download/${seriesId}`;
+                link.download = ''; // Let server set filename
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                console.log('Download initiated for:', seriesId);
+                
+            } catch (error) {
+                console.error('Error downloading data:', seriesId, error);
+                alert('Failed to download data. Please try again.');
+            }
+        }
+
+        function hideMobileDownloadButtons() {            
+            if (getDevice() != 'Desktop') {
+                const downloadButtons = document.querySelectorAll('.download-btn');
+                downloadButtons.forEach(btn => {
+                    btn.style.display = 'none';
+                });
+            }
+        }
+
+        function getDevice() {
+            const ua = navigator.userAgent;
+            if (/iPhone/i.test(ua)) return 'iPhone';
+            if (/iPad/i.test(ua)) return 'iPad';
+            if (/Android.*Mobile/i.test(ua)) return 'Android Phone';
+            if (/Android/i.test(ua)) return 'Android Tablet';
+            if (/BlackBerry|webOS|Windows Phone|IEMobile|Opera Mini/i.test(ua)) return 'Mobile';
+            return 'Desktop';
         }
 
         // Handle window resize events

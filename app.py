@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import time
 import logging
 from functools import wraps
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, send_file
 from urllib.parse import quote, unquote
 import pandas as pd
 import threading
@@ -16,7 +16,7 @@ import numpy as np
 from statistics import mean, stdev
 import warnings
 import shutil
-
+from io import BytesIO
 
 # Load environment variables
 load_dotenv()
@@ -38,7 +38,7 @@ if not FRED_API_KEY:
 
 DB_PATH = os.environ.get('SQLITE_DB_PATH','economic_data.db')
 
-if not os.path.exists('/data/economic_data.db'):
+if not os.path.exists('/mnt/data/economic_data.db'):
     shutil.copyfile('./economic_data.db', '/mnt/data/economic_data.db')
 
 # Economic Indicators Configuration with proper FRED data scaling
@@ -284,7 +284,7 @@ INDICATORS = {
         },
         "ATLSBUSRGEP": {
             "name": "Business Expectations of Sales Revenue Growth",
-            "description": "Survey-based indicator measuring firms’ projections for their own sales revenue growth over the next 12 months.",
+            "description": "Survey-based indicator measuring firms' projections for their own sales revenue growth over the next 12 months.",
             "unit": "percent",
             "format": "percentage"
         },
@@ -1253,92 +1253,6 @@ def get_recent_updates_from_fred(max_indicators=10):
         logger.error(f"Error in get_recent_updates_from_fred: {e}")
         return []
 
-def analyze_recent_economic_trends_from_fred(updates):
-    """Generate economic analysis from FRED-sourced updates"""
-    if not updates:
-        return "Unable to retrieve current economic data from Federal Reserve sources for analysis."
-    
-    # Count recent vs older data
-    very_recent = sum(1 for u in updates if u['days_ago'] <= 7)
-    recent = sum(1 for u in updates if u['days_ago'] <= 30)
-    
-    # Analyze trends from the fresh data
-    positive_signals = []
-    negative_signals = []
-    mixed_signals = []
-    
-    key_indicators = {
-        'UNRATE': 'unemployment',
-        'GDPC1': 'economic growth', 
-        'CPIAUCSL': 'inflation',
-        'PAYEMS': 'employment',
-        'FEDFUNDS': 'interest rates'
-    }
-    
-    for update in updates:
-        yoy = update['yoy_change_raw']
-        series_id = update['series_id']
-        name = key_indicators.get(series_id, update['name'].lower())
-        
-        if yoy is None:
-            continue
-            
-        # Special handling for unemployment (lower is better)
-        if series_id == 'UNRATE':
-            if yoy < -0.3:
-                positive_signals.append(f"declining {name}")
-            elif yoy > 0.3:
-                negative_signals.append(f"rising {name}")
-            continue
-        
-        # General indicators
-        if yoy > 2:
-            positive_signals.append(f"strong {name} growth")
-        elif yoy < -2:
-            negative_signals.append(f"weakening {name}")
-        elif abs(yoy) > 0.5:
-            mixed_signals.append(f"moderate {name} changes")
-    
-    # Generate analysis
-    sentences = []
-    
-    # Opening sentence about data freshness
-    if very_recent >= 3:
-        sentences.append(f"Current Federal Reserve data shows {len(updates)} key economic indicators have been updated, with {very_recent} showing data from the past week, providing a fresh view of economic conditions.")
-    else:
-        sentences.append(f"Analysis of {len(updates)} current economic indicators from Federal Reserve data reveals the latest trends across major economic sectors.")
-    
-    # Overall trend assessment
-    if len(positive_signals) > len(negative_signals):
-        sentences.append("The latest data suggests economic resilience with more indicators showing positive momentum than negative trends.")
-    elif len(negative_signals) > len(positive_signals):
-        sentences.append("Recent indicators point to emerging economic headwinds with several key metrics showing concerning developments.")
-    else:
-        sentences.append("Economic indicators present a mixed picture with positive developments balanced by areas of concern.")
-    
-    # Specific highlights
-    if positive_signals:
-        sentences.append(f"Encouraging developments include {', '.join(positive_signals[:2])}, indicating underlying economic strength.")
-    elif negative_signals:
-        sentences.append(f"Areas of concern include {', '.join(negative_signals[:2])}, suggesting potential economic challenges ahead.")
-    else:
-        sentences.append("Economic indicators are showing moderate changes across sectors without clear directional momentum.")
-    
-    # Data quality and recency
-    if recent >= len(updates) * 0.7:
-        sentences.append("The high proportion of recently updated data provides confidence in the current economic assessment and near-term outlook.")
-    else:
-        sentences.append("While some indicators reflect recent conditions, a fuller economic picture will emerge as additional data becomes available.")
-    
-    # Forward-looking statement
-    priority_count = sum(1 for u in updates if u['series_id'] in ['UNRATE', 'GDPC1', 'CPIAUCSL', 'PAYEMS', 'FEDFUNDS'])
-    if priority_count >= 3:
-        sentences.append("With updates spanning employment, growth, and inflation metrics, the data provides a solid foundation for understanding current economic trajectory and policy implications.")
-    else:
-        sentences.append("Continued monitoring of core economic indicators will be essential for assessing the durability and direction of current trends.")
-    
-    return " ".join(sentences)
-
 # Background data update
 def update_all_indicators():
     """Update all indicators in background"""
@@ -1574,16 +1488,12 @@ def get_recent_updates_api():
         # Get updates from cache or fresh from FRED
         updates = get_recent_updates_with_cache(max_indicators=10)
         
-        # Generate economic analysis
-        economic_analysis = analyze_recent_economic_trends_from_fred(updates)
-        
         # Check if data is from cache
         cached_data = get_cached_recent_updates()
         is_cached = cached_data is not None
         
         return jsonify({
             'updates': updates,
-            'economic_analysis': economic_analysis,
             'total_updates': len(updates),
             'data_source': 'Cache' if is_cached else 'FRED API',
             'is_cached': is_cached,
@@ -1594,6 +1504,115 @@ def get_recent_updates_api():
         logger.error(f"Error in recent updates API: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@app.route('/api/download/<series_id>')
+def download_indicator_data(series_id):
+    """Download all indicator data as Excel file"""
+    try:
+        # Get all available data from database
+        data = get_indicator_data(series_id)  # No days_back limit
+        
+        if not data:
+            return jsonify({'error': 'No data available'}), 404
+        
+        # Find indicator config
+        indicator_config = None
+        for section_indicators in INDICATORS.values():
+            if series_id in section_indicators:
+                indicator_config = section_indicators[series_id]
+                break
+        
+        if not indicator_config:
+            return jsonify({'error': 'Indicator not found'}), 404
+        
+        # Create DataFrame
+        df_data = []
+        for point in data:
+            # Format date as MM/DD/YYYY
+            date_obj = datetime.strptime(point['date'], '%Y-%m-%d')
+            formatted_date = date_obj.strftime('%m/%d/%Y')
+            
+            # Convert FRED values to real-world values
+            raw_value = point['value']
+            
+            if indicator_config['format'] == 'percentage':
+                # Convert percentage: 4.2 -> 0.042
+                converted_value = raw_value / 100
+            elif indicator_config['unit'] == 'thousands':
+                # Convert thousands: 159000 -> 159,000,000
+                converted_value = raw_value * 1000
+            elif indicator_config['unit'] == 'millions':
+                # Convert millions: 159 -> 159,000,000
+                converted_value = raw_value * 1000000
+            elif indicator_config['unit'] == 'billions':
+                # Convert billions: 25.5 -> 25,500,000,000
+                converted_value = raw_value * 1000000000
+            else:
+                # Keep as-is for other formats
+                converted_value = raw_value
+            
+            df_data.append({
+                'Date': formatted_date,
+                'Value': converted_value
+            })
+        
+        df = pd.DataFrame(df_data)
+        
+        # Create Excel file in memory
+        output = BytesIO()
+        
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            # Write header info first
+            workbook = writer.book
+            worksheet = workbook.add_worksheet('Data')
+            
+            # Header formatting
+            header_format = workbook.add_format({
+                'bold': True,
+                'font_size': 14
+            })
+            
+            # Write title and series ID
+            worksheet.write(0, 0, indicator_config['name'], header_format)
+            worksheet.write(1, 0, f"FRED Series ID: {series_id}", header_format)
+            
+            # Write data starting at row 4 (leaving space after headers)
+            df.to_excel(writer, sheet_name='Data', startrow=3, index=False)
+            
+            # Format value column based on data type
+            if indicator_config['format'] == 'percentage':
+                # Format as percentage with 1 decimal places to show 0.0420 as 4.20%
+                percent_format = workbook.add_format({'num_format': '0.0%'})
+                worksheet.set_column('B:B', 20, percent_format)
+            elif indicator_config['format'] == 'currency':
+                # Format as currency with no decimal places for large numbers
+                currency_format = workbook.add_format({'num_format': '$#,##0'})
+                worksheet.set_column('B:B', 20, currency_format)
+            else:
+                # Format as number with no decimal places for large counts
+                number_format = workbook.add_format({'num_format': '#,##0.0'})
+                worksheet.set_column('B:B', 20, number_format)
+            
+            # Auto-adjust date column width
+            worksheet.set_column('A:A', 15)
+        
+        output.seek(0)
+        
+        # Create safe filename from title
+        safe_title = "".join(c for c in indicator_config['name'] if c.isalnum() or c in (' ', '-', '_')).strip()
+        safe_title = safe_title.replace(' ', '_')
+        filename = f"{safe_title}_{datetime.now().strftime('%Y%m%d')}.xlsx"
+        
+        # Return file
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename
+        )
+        
+    except Exception as e:
+        logger.error(f"Error downloading data for {series_id}: {e}")
+        return jsonify({'error': 'Download failed'}), 500
 
 @app.route('/api/test/chart/<series_id>')
 def test_chart_data(series_id):
@@ -1662,3 +1681,4 @@ if __name__ == '__main__':
     # Run the app
     port = int(os.environ.get('PORT', 5000))
     app.run(debug=False, host='0.0.0.0', port="5000")
+            
